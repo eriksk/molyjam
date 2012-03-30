@@ -1,0 +1,19 @@
+-::Molyjam design doc::-
+
+Themes: 
+	* What if the pause button was a weapon? 
+	* A game where if you touch the floor you die.
+	* The only way to progress is to kill enemies and use their bodies as platforms.
+
+Mechanics:
+	* Touch floor = dead
+	* Pause = you pause, the game continues
+	* On enemy killed = they turn to stone
+	* Enemies turned to stone = collidable
+	* Single screen game
+	* Each level is a screen
+	* Dialog
+	* Way of killing enemies = ???
+
+Graphics:
+	* If there is time. Color key maps to make things more interesting.
