@@ -18,3 +18,6 @@ Mechanics:
 Graphics:
 	* If there is time. Color key maps to make things more interesting.
 	* If there is time. Animate lava.
+
+Known bugs:
+	* When falling down from a block to the left. X collision doesn't kick in until you're at the ground below.

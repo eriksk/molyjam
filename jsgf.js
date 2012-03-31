@@ -17,6 +17,12 @@ Game.prototype = {
 	start: function(){
 		var me = this;
 		Game.prototype.load.call(me);
+	},
+	load: function(){
+	},
+	loadDone: function(){	
+		console.log("starting game");
+		var me = this;	
 		setInterval(
 			function(){
 				Game.prototype.update.call(me, 16.0); //TODO: calculate delta
@@ -25,10 +31,7 @@ Game.prototype = {
 				Game.prototype.draw.call(me);
 			}, this.interval);		
 	},
-	load: function(){
-	},
 	updateInternal: function(dt){
-		this.input.update();
 	},
 	update: function(dt){
 	},
@@ -81,7 +84,7 @@ function loadImage(texturePath){
 function Input(){
 	this.keys = {};
 	var k = this.keys;
-	window.onkeypress = function(code){
+	window.onkeydown = function(code){
 		k[code.keyCode] = true;
 	};
 	window.onkeyup = function(code){
@@ -89,8 +92,6 @@ function Input(){
 	};
 }
 Input.prototype = {
-	update: function(){
-	},
 	keyDown: function(code){
 		return this.keys[code];
 	}
@@ -111,6 +112,8 @@ function Entity(texture){
 	this.flipped = false;
 	this.animations = {};
 	this.currentAnimation = "";
+	this.state = 0;
+	this.alive = true;
 }
 Entity.prototype = {
 	setAnim: function(name){
@@ -121,28 +124,41 @@ Entity.prototype = {
 		}
 	},
 	update: function(dt){
-		if(this.currentAnimation != ""){
-			this.animations[this.currentAnimation].update(dt);
-			this.source = this.animations[this.currentAnimation].source;
+		if(this.alive){
+			if(this.currentAnimation != ""){
+				this.animations[this.currentAnimation].update(dt);
+				this.source = this.animations[this.currentAnimation].source;
+			}
 		}
 	},	
 	draw: function(ctx){
-		if(this.flipped){
-			ctx.save();
-			ctx.scale(-1, 1);
-			ctx.drawImage(this.img, 
-				this.source.x, this.source.y, 
-				this.source.width, this.source.height,
-				(-this.x) - this.source.width, this.y, 
-				this.source.width, this.source.height);
-			ctx.restore();
-		}
-		else{
-			ctx.drawImage(this.img, 
-				this.source.x, this.source.y, 
-				this.source.width, this.source.height,
-				this.x, this.y, 
-				this.source.width, this.source.height);	
+		if(!this.alive){
+				ctx.save();
+				ctx.scale(1, -1);
+				ctx.drawImage(this.img, 
+					this.source.x, this.source.y, 
+					this.source.width, this.source.height,
+					this.x, (-this.y) - this.source.height, 
+					this.source.width, this.source.height);
+				ctx.restore();
+		}else{
+			if(this.flipped){
+				ctx.save();
+				ctx.scale(-1, 1);
+				ctx.drawImage(this.img, 
+					this.source.x, this.source.y, 
+					this.source.width, this.source.height,
+					(-this.x) - this.source.width, this.y, 
+					this.source.width, this.source.height);
+				ctx.restore();
+			}
+			else{
+				ctx.drawImage(this.img, 
+					this.source.x, this.source.y, 
+					this.source.width, this.source.height,
+					this.x, this.y, 
+					this.source.width, this.source.height);	
+			}
 		}
 	}
 }
@@ -223,6 +239,7 @@ function TileMap(texture, width, height, cols, rows){
 	this.cellCols = 8;
 	this.cellRows = 8;
 	this.nonCollidable = [];
+	this.nonDrawable = [];
 	// initialize empty grid
 	this.grid = [];
 	for(var i = 0; i < this.cols; i++){
@@ -262,20 +279,30 @@ TileMap.prototype = {
 	},
 	draw: function(ctx){
 		var cell = 0;
+		var shouldDraw = false;
 		for(var i = 0; i < this.cols; i++){
 			for(var j = 0; j < this.rows; j++){
 				cell = this.grid[i][j];
-				if(cell != -1){
+				shouldDraw = true;
+				for(var x = 0; x < this.nonDrawable.length; x++){
+					if(cell == this.nonDrawable[x]){
+						shouldDraw = false;
+					}
+				}
+				if(shouldDraw){
 					var row = Math.floor(cell / this.cellCols);
 					var col = cell % this.cellCols;
-					this.source.x = col * this.width;
-					this.source.y = row * this.height; 
-					ctx.drawImage(
-						this.img, 
-						this.source.x, this.source.y,
-						this.source.width, this.source.height,
-						i * this.width, j * this.height,
-						this.source.width, this.source.height);
+					if(col > -1 && col < this.grid.length &&
+						row > -1 && row < this.grid.length){
+						this.source.x = col * this.width;
+						this.source.y = row * this.height; 
+						ctx.drawImage(
+							this.img, 
+							this.source.x, this.source.y,
+							this.source.width, this.source.height,
+							i * this.width, j * this.height,
+							this.source.width, this.source.height);
+					}
 				}
 			}
 		}
