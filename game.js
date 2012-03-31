@@ -53,10 +53,17 @@ Game.prototype.load = function(){
 	map.load();
 	map.nonCollidable = nonCollidableCells;
 	map.nonDrawable = nonDrawable;
+
+	// load sounds
+	this.audio.load('explosion.wav');
+	this.audio.load('main.ogg');
+
+	this.startLoopCallback = function(){
+		GAME.audio.playSong('main');
+	};
 	
-	this.reset();
-	
-	this.loadDone();
+	this.reset();	
+	this.onLoaded();
 };
 Game.prototype.reset = function(){
 	console.log(map.nonDrawable);
@@ -78,7 +85,7 @@ Game.prototype.reset = function(){
 		e.y = enemyPositions[i].y;
 		e.ai = new AI();
 		enemies.push(e);
-		console.log("enemy added");
+		console.log("enemy added at " + e.x + " : " + e.y);
 	}
 
 };
@@ -107,6 +114,7 @@ Game.prototype.update = function(dt){
 				var enemy = enemies[i];
 				enemy.flip();
 			}
+			this.audio.play('explosion');
 		}
 	}
 

@@ -21,3 +21,7 @@ Graphics:
 
 Known bugs:
 	* When falling down from a block to the left. X collision doesn't kick in until you're at the ground below.
+
+
+TODO: 
+	Flying enemies.. static just flying up and down or wathever.

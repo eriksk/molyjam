@@ -2,7 +2,7 @@
 * Game
 * ********************************************
 */
-function Game(){
+function Game(onLoaded){
 	this.width = 800;
 	this.height = 600;
 	this.interval = 16.0;
@@ -12,6 +12,8 @@ function Game(){
 	this.audio = new AudioManager();
 	// store reference to this game
 	this.game = this;
+	this.onLoaded = onLoaded;
+	this.startLoopCallback;
 }
 Game.prototype = {
 	start: function(){
@@ -20,7 +22,7 @@ Game.prototype = {
 	},
 	load: function(){
 	},
-	loadDone: function(){	
+	startLoop: function(){	
 		console.log("starting game");
 		var me = this;	
 		setInterval(
@@ -30,6 +32,7 @@ Game.prototype = {
 				Game.prototype.clear.call(me);
 				Game.prototype.draw.call(me);
 			}, this.interval);		
+		this.startLoopCallback();
 	},
 	updateInternal: function(dt){
 	},
@@ -181,8 +184,8 @@ function Animation(frames, width, height, textureWidth, textureHeight, interval)
 }
 Animation.prototype = {
 	reset: function(){
-		this.current = 0.0;
-		this.currentFrame = 0;
+		this.current = this.interval + 1;
+		this.currentFrame = this.frames;
 	},
 	update : function(dt){
 		this.current += dt;
@@ -320,36 +323,22 @@ AudioManager.prototype = {
 	load: function(soundPath){
 		var name = soundPath.split('/');
 		name = name[name.length - 1].split('.')[0];
+		console.log("loading sound " + soundPath);
 		this.sounds[name] = new Audio(soundPath);
-		this.sounds[name].pause();
 	},
 	play: function(name){
 		console.log("Playing sound " + name);	
-		try{
-			this.sounds[name].currentTime = 0;
-		}catch(exception){
-			console.log(exception);
-		}
 		this.sounds[name].play();
 	},
 	playSong: function(name){	
-		console.log("Started playing song " + name);	
-		try{
-			this.sounds[name].addEventListener('ended', function() {
-		    this.currentTime = 0;
-		    this.play();
-			}, false);
-		}catch(exception){
-			console.log(exception);
-		}
+		console.log("Started playing song " + name);			
+		this.sounds[name].addEventListener('ended', function() {
+	    this.currentTime = 0;
+		}, false);
 		this.sounds[name].play();
 	},
 	stopSong: function(name){
 		console.log("Ended playing song " + name);	
-		try{
-			this.sounds[name].pause();
-		}catch(exception){
-			console.log(exception);
-		}
+		this.sounds[name].pause();
 	}
 }
