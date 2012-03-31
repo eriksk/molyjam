@@ -47,6 +47,10 @@ function Vector2(){
 	this.x = 0.0;
 	this.y = 0.0;
 }
+function Vector2(x, y){
+	this.x = x;
+	this.y = y;
+}
 
 /*********************************************
 * Vector3
@@ -101,6 +105,7 @@ function Entity(texture){
 	this.img = loadImage(texture);
 	this.x = 0;
 	this.y = 0;
+	this.vel = new Vector2(0, 0);
 	this.rotation = 0.0;
 	this.source = new Rectangle(0, 0, this.img.width, this.img.height);
 	this.flipped = false;
@@ -156,6 +161,7 @@ function Animation(frames, width, height, textureWidth, textureHeight, interval)
 	this.interval = interval;
 	this.textureWidth = textureWidth;
 	this.textureHeight = textureHeight;
+	this.startIndex = 0;
 }
 Animation.prototype = {
 	reset: function(){
@@ -171,8 +177,10 @@ Animation.prototype = {
 				this.currentFrame = 0;
 			}
 
-			this.source.x = (this.currentFrame % this.textureWidth) * this.width;
-			this.source.y = (this.currentFrame / this.textureWidth) * this.height; 
+			var row = Math.floor((this.currentFrame + this.startIndex) / 8);
+			var col = (this.currentFrame + this.startIndex) % 8;
+			this.source.x = col * this.width;
+			this.source.y = row * this.height; 
 		}	
 	}
 }
@@ -214,6 +222,7 @@ function TileMap(texture, width, height, cols, rows){
 	this.rows = rows;
 	this.cellCols = 8;
 	this.cellRows = 8;
+	this.nonCollidable = [];
 	// initialize empty grid
 	this.grid = [];
 	for(var i = 0; i < this.cols; i++){
@@ -224,10 +233,32 @@ function TileMap(texture, width, height, cols, rows){
 	}
 }
 TileMap.prototype = {
+	getCell: function(col, row){
+		return this.grid[col][row];
+	},
+	collides: function(x, y){
+		var col = Math.floor(x / this.width);
+		var row = Math.floor(y / this.height);
+		if(col > -1 && col < this.grid.length &&
+			row > -1 && row < this.grid.length){
+			var cell = this.grid[col][row]; 
+			if(cell != -1){
+				// check if non collidable
+				for(var i = 0; i < this.nonCollidable.length; i++){
+					if(this.nonCollidable[i] == cell){
+						// non collidable cell, don't collide
+						return false;
+					}
+				}
+				return true;
+			}
+			return false;
+		}
+		return true;
+	},
 	load: function(){
 	},
 	update: function(){
-
 	},
 	draw: function(ctx){
 		var cell = 0;
