@@ -2,14 +2,14 @@
 var startCell = 62;
 var endCell = 63;
 var enemyIndex = 7;
-var lavaCells = [56]; // this is the only one we can actually hit right?
+var lavaCells = [48, 49, 56, 57, 58]; // this is the only one we can actually hit right?
 var GRAVITY = 0.001;
 var WALK_SPEED = 0.2;
 var MOB_WALK_SPEED = 0.02;
 var JUMP_SPEED = 0.2;
 var FRICTION = 0.19;
 var MAX_SPEED = 0.15;
-var nonCollidableCells = [startCell, endCell, enemyIndex];
+var nonCollidableCells = [startCell, endCell, enemyIndex, 48, 49, 56, 57, 58];
 var nonDrawable = [enemyIndex, 0];
 var GAME;
 
@@ -23,6 +23,11 @@ var screenPos = new Vector2(0, 0);
 var enemyCoolDown = 0.0;
 var enemyMaxCoolDown = 5000;
 var currentMessage = "test";
+var state = 0;
+var PLAYING = 0;
+var DYING = 1;
+
+var startCountDown = 0;
 
 /**
                                                              
@@ -61,14 +66,20 @@ Game.prototype.load = function(){
 	this.startLoopCallback = function(){
 		GAME.audio.playSong('main');
 	};
+
+	this.particles.load(new Entity('particles.png'), 256);
 	
 	this.reset();	
 	this.onLoaded();
 };
+
+var startPos;
+var endPost;
+
 Game.prototype.reset = function(){
 	console.log(map.nonDrawable);
-	var startPos = getPosByIdx(map, startCell);
-	var endPost = getPosByIdx(map, endCell);
+	startPos = getPosByIdx(map, startCell);
+	endPost = getPosByIdx(map, endCell);
 	player.x = startPos.x;
 	player.y = startPos.y;
 	
@@ -89,6 +100,16 @@ Game.prototype.reset = function(){
 	}
 
 };
+Game.prototype.restartLevel = function(){
+	player.x = startPos.x;
+	player.y = startPos.y;	
+	player.vel.y = 0;
+	enemyCoolDown = 0;
+}
+
+Game.prototype.nextLevel = function(){
+	// todo
+}
 
 Game.prototype.update = function(dt){
 	if(quake > 0.0){
@@ -103,20 +124,42 @@ Game.prototype.update = function(dt){
 	}
 
 	if(GAME.input.keyDown('13')){
-		GAME.reset();		
+		GAME.restartLevel();		
 	}
 
-	if(enemyCoolDown <= 0){
-		if(GAME.input.keyDown('32')){
-			quake = 100;
-			enemyCoolDown = enemyMaxCoolDown;
-			for(var i = 0; i < enemies.length; i++){
-				var enemy = enemies[i];
-				enemy.flip();
+	if(state == PLAYING){
+		if(enemyCoolDown <= 0){
+			if(GAME.input.keyDown('32')){
+				GAME.particles.spawnProjectiles();
+				quake = 100;
+				enemyCoolDown = enemyMaxCoolDown;
+				for(var i = 0; i < enemies.length; i++){
+					var enemy = enemies[i];
+					enemy.flip();
+				}
+				this.audio.play('explosion');
 			}
-			this.audio.play('explosion');
+		}
+
+		// check for death
+		if(contains(map.getCell(Math.floor(player.x / 16), Math.floor(player.y / 16)), lavaCells)){
+			die();
+		}
+
+		player.collideWith(enemies);
+
+		player.updateAll(dt);
+		player.updatePlayer(dt);
+		player.update(dt);
+
+	}else if(state == DYING){
+		startCountDown -= dt;
+		if(startCountDown < 0.0){
+			state = PLAYING;
+			this.restartLevel();
 		}
 	}
+
 
 	for(var i = 0; i < enemies.length; i++){
 		var enemy = enemies[i];
@@ -125,13 +168,16 @@ Game.prototype.update = function(dt){
 		enemy.update(dt);
 	}
 
-	player.updateAll(dt);
-	player.updatePlayer(dt);
-	player.update(dt);
+	this.particles.update(dt);
 
-
-	// todo: get cell and base character actions on that
 };
+
+function die(){
+	state = DYING;
+	GAME.particles.spawnBlood(player.x, player.y);
+	startCountDown = 1000;
+}
+
 var qTime = 0.0;
 Game.prototype.draw = function(){
 	if(quake > 0.0){
@@ -142,15 +188,23 @@ Game.prototype.draw = function(){
 	}else{
 		this.ctx.setTransform(1, 0, 0, 1, 0, 0);
 	}
+
+
 	map.draw(this.ctx);	
+
 	for(var i = 0; i < enemies.length; i++){
 		var enemy = enemies[i];
 		enemy.draw(this.ctx);
 	}
-	player.draw(this.ctx);
+
+	this.particles.draw(this.ctx);
+
+	if(state != DYING){
+		player.draw(this.ctx);
+	}
 
 	// hud
-	this.ctx.fillStyle = "rgba(0, 0, 0, 50)";
+	this.ctx.fillStyle = "rgba(0, 20, 0, 50)";
 	this.ctx.fillRect(48, 24, 512 - 96, 12);
 	if(enemyCoolDown > 0.0){
 		this.ctx.fillStyle = "red";
@@ -297,12 +351,52 @@ Entity.prototype.updateAll = function(dt){
 		}
 	}else{
 		// check for ground, if not found: fall off
-		if(!map.collides(this.x, this.y + 17)){
+		if(!map.collides(this.x, this.y + 17) &&
+			!enemyBelow(this)){
 			this.y = Math.floor(this.y / 16) * 16;
 			this.jump(0);
 		}
 	}
 
+}
+
+function enemyBelow(t){
+	if(t == player){
+		player.x += 2;
+		for (var i = 0; i < enemies.length; i++) {
+			var e = enemies[i];
+			if(player.intersects(e)){
+				player.x -= 2;
+			   	return true;
+			}
+		}
+		player.x -= 2;
+	}
+	return false;
+}
+
+// collides
+Entity.prototype.collideWith = function(collection){
+	if(collection.length > 0){
+		if(collection[0].alive){
+			for (var i = 0; i < collection.length; i++) {				
+				var e = collection[i];
+				if(player.intersects(e)){
+						die();
+					   	break;
+				}
+			}
+		}else{
+			for (var i = 0; i < collection.length; i++) {
+				var e = collection[i];
+				if(player.intersects(e)){
+						player.y = e.y - 16;
+						player.grounded = true;
+					   	break;
+				}
+			}
+		}
+	}
 }
 
 Entity.prototype.updatePlayer = function(dt){
@@ -426,4 +520,13 @@ function clamp(val, min, max){
 
 function lerp(min, max, weight){
 	return min + (max - min) * weight;
+}
+
+function contains(value, list){
+	for (var i = 0; i < list.length; i++) {
+		if(list[i] == value){
+			return true;
+		}
+	}
+	return false;
 }

@@ -10,6 +10,7 @@ function Game(onLoaded){
 	this.ctx = document.getElementById(this.canvasId).getContext("2d");
 	this.input = new Input();
 	this.audio = new AudioManager();
+	this.particles = new ParticleManager();
 	// store reference to this game
 	this.game = this;
 	this.onLoaded = onLoaded;
@@ -134,6 +135,18 @@ Entity.prototype = {
 			}
 		}
 	},	
+	intersects: function(other){
+		if(this.y + 16 < other.y)
+			return false;
+		if(this.y > other.y + 16)
+			return false;
+		if(this.x + 16 < other.x)
+			return false;
+		if(this.x > other.x + 16)
+			return false;
+
+		return true;
+	},
 	draw: function(ctx){
 		if(!this.alive){
 				ctx.save();
@@ -254,7 +267,12 @@ function TileMap(texture, width, height, cols, rows){
 }
 TileMap.prototype = {
 	getCell: function(col, row){
-		return this.grid[col][row];
+		if(col > -1 && col < this.grid.length &&
+			row > -1 && row < this.grid.length){
+			return this.grid[col][row];
+		}
+		console.log("col: " + col + " row: " + row);
+		return -1;
 	},
 	collides: function(x, y){
 		var col = Math.floor(x / this.width);
@@ -318,8 +336,15 @@ TileMap.prototype = {
 */
 function AudioManager(){
 	this.sounds = {};
+	this.muted = true;
 }
 AudioManager.prototype = {
+	toggleMute: function(){
+		this.muted = !this.muted;
+		if(!this.muted){
+			stopAll();
+		} 
+	},
 	load: function(soundPath){
 		var name = soundPath.split('/');
 		name = name[name.length - 1].split('.')[0];
@@ -328,17 +353,107 @@ AudioManager.prototype = {
 	},
 	play: function(name){
 		console.log("Playing sound " + name);	
-		this.sounds[name].play();
+		if(!this.muted){
+			this.sounds[name].play();
+		}
 	},
 	playSong: function(name){	
 		console.log("Started playing song " + name);			
 		this.sounds[name].addEventListener('ended', function() {
 	    this.currentTime = 0;
 		}, false);
-		this.sounds[name].play();
+		if(!this.muted){
+			this.sounds[name].play();
+		}
 	},
 	stopSong: function(name){
 		console.log("Ended playing song " + name);	
 		this.sounds[name].pause();
 	}
+}
+
+
+/*********************************************
+* ParticleManager
+* ********************************************
+*/
+function ParticleManager(){
+	this.particles = [];
+	this.count = 0;
+	this.entity;
+}
+ParticleManager.prototype = {
+	load: function(entity, buffer){
+		this.entity = entity;
+		this.entity.source.width = 8;
+		this.entity.source.height = 8;
+		for (var i = 0; i < buffer; i++) {
+			this.particles.push(new Particle());
+		}
+	},
+	spawnBlood: function(x, y){
+		for (var i = 0; i < 64; i++) {
+			if(this.count < this.particles.length){
+				var p = this.particles[this.count++];
+				p.current = 0;
+				p.type = 0;
+				p.duration = 1000; 
+				p.x = x;
+				p.y = y;
+				p.vel.x = -0.2 + (Math.random() * 0.4);
+				p.vel.y = -0.4 + (Math.random() * 0.6);
+			}
+		}
+	},
+	spawnProjectiles: function(){		
+		for (var i = 0; i < 32; i++) {
+			if(this.count < this.particles.length){
+				var p = this.particles[this.count++];
+				p.current = 0;
+				p.type = 1;
+				p.duration = 2000; 
+				p.x = Math.random() * 512;
+				p.y = Math.random() * 512;
+				p.vel.x = 0;
+				p.vel.y = Math.random() * -0.2;
+			}
+		}
+	},
+	update: function(dt){
+		for (var i = 0; i < this.count; i++) {
+			var p = this.particles[i];
+			p.current += dt;
+			p.x += p.vel.x * dt;
+			p.vel.y += GRAVITY * dt;
+			p.y += p.vel.y * dt;
+			if(p.current > p.duration){
+				var temp = this.particles[this.count - 1];
+				this.particles[this.count - 1] = p;
+				this.particles[i] = temp;
+				this.count--;
+				i--;
+			}
+		}
+	},
+	draw: function(ctx){
+		for (var i = 0; i < this.count; i++) {
+			var p = this.particles[i];
+			this.entity.x = p.x;
+			this.entity.y = p.y;
+			this.entity.source.x = p.type * 8;
+			this.entity.source.y = p.type;
+			this.entity.draw(ctx);
+		}
+	}
+}
+
+function Particle(){
+	this.type = 0;
+	this.BLOOD = 0;
+	this.PROJECTILE = 1;
+	this.current = 0;
+	this.duration = 100;
+	this.x = 0;
+	this.y = 0;
+	this.vel = new Vector2(0, 0);
 }
